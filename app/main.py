@@ -1,11 +1,4 @@
 import streamlit as st
-
-st.set_page_config(page_title="Project Dashboard", layout="wide")
-st.title("Project Dashboard")
-st.subheader("Quant A — Single Asset (MVP)")
-st.info("Setup OK: app/main.py is running.")
-
-import streamlit as st
 import matplotlib.pyplot as plt
 
 from core.data import fetch_price_history
