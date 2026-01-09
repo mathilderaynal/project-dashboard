@@ -39,10 +39,7 @@ import numpy as np
 
 st.write("Buy & Hold — cumulative value (starting at 100)")
 
-# daily/period returns from Close
-returns = df["Close"].pct_change().dropna()
-
-# equity curve starting at 100
+returns = df["Close"].pct_change().fillna(0)
 equity_bh = 100 * (1 + returns).cumprod()
 
 fig2, ax2 = plt.subplots()
@@ -78,23 +75,44 @@ col3.metric("Sharpe Ratio", f"{sharpe:.2f}")
 st.divider()
 st.subheader("Strategy 2 — Moving Average Crossover")
 
-# --- Parameters ---
-short_window = st.slider("Short MA window", min_value=2, max_value=50, value=10)
-long_window = st.slider("Long MA window", min_value=10, max_value=200, value=30)
+# --- Parameters (ADAPTÉS À LA TAILLE DES DONNÉES) ---
+n = len(df)
+
+max_long = max(10, min(200, n-1))
+long_window = st.slider(
+    "Long MA window",
+    min_value=10,
+    max_value=max_long,
+    value=min(30, max_long)
+)
+
+max_short = max(2, min(50, long_window-1))
+short_window = st.slider(
+    "Short MA window",
+    min_value=2,
+    max_value=max_short,
+    value=min(10, max_short)
+)
+
 
 if short_window >= long_window:
     st.error("Short window must be strictly smaller than long window.")
 else:
-    # --- Signals ---
+    # --- Signals (clean + aligned) ---
     close = df["Close"].copy()
-    ma_short = close.rolling(short_window).mean()
-    ma_long = close.rolling(long_window).mean()
+    returns = close.pct_change().fillna(0)
 
-    signal = (ma_short > ma_long).astype(int)          # 1 = long, 0 = cash
-    position = signal.shift(1).fillna(0)               # trade on next bar (no look-ahead)
+    ma_short = close.rolling(short_window, min_periods=short_window).mean()
+    ma_long  = close.rolling(long_window,  min_periods=long_window).mean()
 
-    strat_returns = returns * position.loc[returns.index]
+    st.caption(
+    f"Bars={len(df)} | ma_long valid={ma_long.notna().sum()} | "
+    f"Trades~={position.diff().abs().sum()}")
 
+    signal = (ma_short > ma_long).astype(int)               # 1 = long, 0 = cash
+    position = signal.shift(1).reindex(returns.index).fillna(0)
+
+    strat_returns = returns * position
     equity_ma = 100 * (1 + strat_returns).cumprod()
 
     # --- Plot: compare equity curves ---
